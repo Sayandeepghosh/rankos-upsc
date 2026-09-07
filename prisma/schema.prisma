@@ -1,0 +1,686 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String
+  avatarUrl     String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  profile       UserProfile?
+  examTargets   ExamTarget[]
+  tasks         StudyTask[]
+  sessions      StudySession[]
+  plans         StudyPlan[]
+  revisions     RevisionSchedule[]
+  notes         Note[]
+  mistakes      Mistake[]
+  goals         Goal[]
+  milestones    Milestone[]
+  testAttempts  TestAttempt[]
+  mainsAnswers  MainsAnswer[]
+  essayAttempts EssayAttempt[]
+  notifications Notification[]
+  aiInsights    AIInsight[]
+  analytics     AnalyticsSnapshot[]
+}
+
+model UserProfile {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetYear       Int      @default(2027)
+  attemptNumber    Int      @default(1)
+  currentPhase     String   @default("Foundation") // Foundation, First Reading, Consolidation, Prelims Intensive, Mains Intensive
+  optionalSubject  String   @default("PSIR")
+  dailyStudyHours  Float    @default(6.0)
+  wakeTime         String   @default("06:00")
+  strongSubjects   String   @default("Polity,Ethics")
+  weakSubjects     String   @default("Environment,Ancient History")
+  aiProvider       String   @default("heuristic") // heuristic, openai, anthropic, gemini
+  aiModel          String   @default("default")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model ExamTarget {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  examName    String   // UPSC CSE 2027 Prelims
+  examStage   String   // Prelims, Mains, Interview
+  targetDate  DateTime
+  daysLeft    Int?
+  isPrimary   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model PreparationPhase {
+  id          String   @id @default(cuid())
+  name        String   // Foundation, First Reading, Consolidation, Prelims Intensive, Post-Prelims Mains, Mains Intensive, Interview
+  description String
+  order       Int      @default(1)
+  focusAreas  String   // JSON or comma separated focus recommendations
+}
+
+model Paper {
+  id          String         @id @default(cuid())
+  code        String         @unique // GS-1, GS-2, GS-3, GS-4, CSAT, PSIR-1, PSIR-2, ESSAY
+  title       String
+  stage       String         // Prelims, Mains, Optional, Essay
+  totalMarks  Int            @default(250)
+  order       Int            @default(1)
+  subjects    Subject[]
+  syllabusNodes SyllabusNode[]
+}
+
+model Subject {
+  id          String         @id @default(cuid())
+  paperId     String
+  paper       Paper          @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  code        String         @unique // POLITY, ECONOMY, HISTORY, GEOGRAPHY, ENVIRONMENT, SCIENCE_TECH, ETHICS, PSIR_THEORY, etc.
+  name        String
+  color       String         @default("#3b82f6")
+  weightage   Float          @default(1.0)
+  syllabusNodes SyllabusNode[]
+}
+
+model SyllabusNode {
+  id             String          @id @default(cuid())
+  paperId        String
+  paper          Paper           @relation(fields: [paperId], references: [id], onDelete: Cascade)
+  subjectId      String
+  subject        Subject         @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  parentId       String?
+  parent         SyllabusNode?   @relation("Hierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children       SyllabusNode[]  @relation("Hierarchy")
+  title          String
+  code           String?         @unique
+  nodeType       String          // Unit, Topic, Subtopic
+  order          Int             @default(1)
+  importance     String          @default("High") // High, Medium, Low
+  pyqFrequency   Int             @default(0)
+  description    String?
+
+  progress       TopicProgress[]
+  tasks          StudyTask[]
+  questions      Question[]
+  pyqs           PYQ[]
+  mainsQuestions MainsQuestion[]
+  caLinks        CurrentAffairTopicLink[]
+  mistakes       Mistake[]
+  notes          Note[]
+  revisionSchedules RevisionSchedule[]
+}
+
+model TopicProgress {
+  id                 String       @id @default(cuid())
+  nodeId             String
+  node               SyllabusNode @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  userId             String
+  lifecycleStage     Int          @default(1) // 1 to 13: Not Started -> Exam Ready
+  stageName          String       @default("Not Started")
+  masteryScore       Float        @default(0.0) // 0-100
+  recallScore        Float        @default(0.0)
+  testScore          Float        @default(0.0)
+  answerScore        Float        @default(0.0)
+  revisionHealth     Float        @default(0.0)
+  pyqPerformance     Float        @default(0.0)
+  confidence         String       @default("Low") // Low, Medium, High
+  notesStatus        String       @default("None") // None, Draft, Completed, SheetGenerated
+  pyqsAttempted      Int          @default(0)
+  questionsAnswered  Int          @default(0)
+  accuracy           Float        @default(0.0)
+  lastStudiedAt      DateTime?
+  nextRevisionAt     DateTime?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  @@unique([nodeId, userId])
+}
+
+model StudyTask {
+  id              String       @id @default(cuid())
+  userId          String
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nodeId          String?
+  node            SyllabusNode? @relation(fields: [nodeId], references: [id], onDelete: SetNull)
+  title           String
+  subject         String
+  topic           String
+  reason          String       // Why daily commander picked this
+  taskType        String       // Learning, Recall, Revision, MCQ Practice, Answer Writing, PYQ Practice, Current Affairs
+  priority        String       @default("High") // Urgent, High, Medium, Low
+  priorityScore   Float        @default(80.0)
+  estimatedMinutes Int         @default(60)
+  actualMinutes   Int          @default(0)
+  scheduledDate   DateTime     @default(now())
+  timeSlot        String?      // e.g. "08:00 - 09:30"
+  status          String       @default("PENDING") // PENDING, IN_PROGRESS, COMPLETED, SKIPPED, RESCHEDULED
+  expectedOutput  String?
+  completionNotes String?
+  isBacklog       Boolean      @default(false)
+  backlogAction   String?      // Reschedule, Compress, Merge, Replace, Drop
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+}
+
+model StudySession {
+  id               String       @id @default(cuid())
+  userId           String
+  user             User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  taskId           String?
+  subject          String
+  topic            String
+  sessionType      String       @default("DeepWork") // Pomodoro25, Pomodoro50, DeepWork90, Custom
+  plannedMinutes   Int          @default(60)
+  actualMinutes    Int          @default(0)
+  distractions     Int          @default(0)
+  rating           Int          @default(4) // 1-5
+  notes            String?
+  startedAt        DateTime     @default(now())
+  endedAt          DateTime?
+  createdAt        DateTime     @default(now())
+}
+
+model StudyPlan {
+  id            String       @id @default(cuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date          DateTime
+  totalMinutes  Int          @default(360)
+  completedMins Int          @default(0)
+  tasksCount    Int          @default(0)
+  status        String       @default("ACTIVE") // ACTIVE, COMPLETED, NO_ZERO_DAY
+  notes         String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model RevisionSchedule {
+  id              String       @id @default(cuid())
+  userId          String
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nodeId          String
+  node            SyllabusNode @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  subject         String
+  topic           String
+  revisionNumber  Int          @default(1) // 1, 2, 3, 4+
+  intervalDays    Int          @default(3)
+  scheduledDate   DateTime
+  lastRevisionDate DateTime?
+  status          String       @default("DUE") // DUE, OVERDUE, COMPLETED, SKIPPED
+  recallHealth    Float        @default(100.0) // 0-100 decays with time
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  attempts        RevisionAttempt[]
+}
+
+model RevisionAttempt {
+  id              String           @id @default(cuid())
+  scheduleId      String
+  schedule        RevisionSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  rating          String           // Forgot, Hard, Good, Easy
+  oldInterval     Int
+  newInterval     Int
+  recallPrompt    String?
+  recalledCorrect Boolean          @default(true)
+  notesReviewed   String?
+  timeSpentSec    Int              @default(300)
+  createdAt       DateTime         @default(now())
+}
+
+model RecallAttempt {
+  id              String       @id @default(cuid())
+  userId          String
+  topic           String
+  subject         String
+  prompt          String
+  userResponse    String?
+  canonicalPoints String?
+  selfRating      String       // Forgot, Hard, Good, Easy
+  scorePercent    Float        @default(75.0)
+  createdAt       DateTime     @default(now())
+}
+
+model Question {
+  id              String          @id @default(cuid())
+  nodeId          String?
+  node            SyllabusNode?   @relation(fields: [nodeId], references: [id], onDelete: SetNull)
+  paper           String          @default("GS-1") // GS-1, CSAT
+  subject         String
+  topic           String
+  questionText    String
+  directive       String?
+  explanation     String
+  eliminationTip  String?
+  difficulty      String          @default("Medium") // Easy, Medium, Hard
+  isPYQ           Boolean         @default(false)
+  pyqYear         Int?
+  options         QuestionOption[]
+  attempts        QuestionAttempt[]
+  createdAt       DateTime        @default(now())
+}
+
+model QuestionOption {
+  id          String   @id @default(cuid())
+  questionId  String
+  question    Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  optionLabel String   // A, B, C, D
+  optionText  String
+  isCorrect   Boolean  @default(false)
+  whyWrong    String?
+}
+
+model QuestionAttempt {
+  id                 String       @id @default(cuid())
+  questionId         String
+  question           Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  userId             String
+  selectedOptionId   String?
+  isCorrect          Boolean
+  marksObtained      Float        // +2.0 or -0.66
+  timeSpentSec       Int          @default(45)
+  eliminationMethod  String       @default("Knew directly") // Knew directly, Eliminated two, Educated guess, Blind guess
+  createdAt          DateTime     @default(now())
+}
+
+model Test {
+  id          String        @id @default(cuid())
+  title       String
+  testType    String        // Full Mock, Sectional, Topic Quiz, CSAT
+  paper       String        // GS-1, CSAT, Mains GS-2, etc.
+  totalMarks  Int           @default(200)
+  durationMins Int          @default(120)
+  questionsCount Int        @default(100)
+  attempts    TestAttempt[]
+  createdAt   DateTime      @default(now())
+}
+
+model TestAttempt {
+  id                 String       @id @default(cuid())
+  testId             String
+  test               Test         @relation(fields: [testId], references: [id], onDelete: Cascade)
+  userId             String
+  user               User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  totalQuestions     Int          @default(100)
+  attemptedQuestions Int          @default(0)
+  correctQuestions   Int          @default(0)
+  incorrectQuestions Int          @default(0)
+  skippedQuestions   Int          @default(0)
+  rawScore           Float        @default(0.0)
+  negativeMarks      Float        @default(0.0)
+  netScore           Float        @default(0.0)
+  accuracyRate       Float        @default(0.0)
+  timeSpentSec       Int          @default(7200)
+  aiDiagnosis        String?      // Comprehensive mock diagnosis
+  topMistakes        String?      // JSON of top 5 error patterns
+  correctivePlan     String?      // 7-day focus roadmap
+  createdAt          DateTime     @default(now())
+
+  answers            TestAnswer[]
+}
+
+model TestAnswer {
+  id                String       @id @default(cuid())
+  testAttemptId     String
+  testAttempt       TestAttempt  @relation(fields: [testAttemptId], references: [id], onDelete: Cascade)
+  questionNumber    Int
+  questionText      String
+  subject           String
+  selectedOption    String?
+  correctOption     String
+  isCorrect         Boolean
+  marks             Float
+  eliminationMethod String       @default("Knew directly")
+  timeTakenSec      Int          @default(60)
+}
+
+model PYQ {
+  id             String        @id @default(cuid())
+  nodeId         String?
+  node           SyllabusNode? @relation(fields: [nodeId], references: [id], onDelete: SetNull)
+  stage          String        // Prelims, Mains, Essay, PSIR
+  paper          String        // GS-1, GS-2, GS-3, GS-4, Essay, PSIR-1, PSIR-2
+  year           Int
+  questionNumber Int?
+  marks          Int           @default(10) // 10, 15, 20, 250
+  questionText   String
+  directive      String?       // Discuss, Critically Analyse, etc.
+  subject        String
+  topic          String
+  subtopic       String?
+  difficulty     String        @default("Medium")
+  recurringTheme String?       // e.g. "Parliamentary Privileges", "Judicial Activism"
+  frequencyCount Int           @default(1)
+  trend          String        @default("Stable") // Rising, Stable, Declining
+  modelOutline   String?
+  sampleAnswer   String?
+  createdAt      DateTime      @default(now())
+}
+
+model MainsQuestion {
+  id              String        @id @default(cuid())
+  nodeId          String?
+  node            SyllabusNode? @relation(fields: [nodeId], references: [id], onDelete: SetNull)
+  paper           String        // GS-1, GS-2, GS-3, GS-4, PSIR-1, PSIR-2
+  subject         String
+  topic           String
+  questionText    String
+  directive       String        @default("Discuss") // Discuss, Analyse, Critically Analyse, Examine, Evaluate, Comment, Explain, Elucidate, Justify, Assess
+  marks           Int           @default(10) // 10 or 15
+  wordLimit       Int           @default(150) // 150 or 250
+  allottedMinutes Int           @default(7) // 7 or 11
+  dimensionsGuide String?       // Suggested multidimensional points
+  modelAnswer     String?
+  answers         MainsAnswer[]
+  createdAt       DateTime      @default(now())
+}
+
+model MainsAnswer {
+  id              String            @id @default(cuid())
+  questionId      String
+  question        MainsQuestion     @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  version         Int               @default(1) // Attempt 1, Attempt 2 (Improvement loop)
+  answerText      String
+  wordCount       Int               @default(0)
+  timeTakenSec    Int               @default(420)
+  status          String            @default("EVALUATED") // DRAFT, SUBMITTED, EVALUATED
+  overallScore    Float             @default(0.0)
+  evaluations     AnswerEvaluation[]
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+model AnswerEvaluation {
+  id                 String       @id @default(cuid())
+  answerId           String
+  answer             MainsAnswer  @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  evaluatorModel     String       @default("UPSC Strict Evaluator")
+  overallScore       Float        @default(5.5) // out of 10 or 15
+  maxMarks           Float        @default(10.0)
+  // Sub-scores
+  understandingScore Float        @default(6.0)
+  structureScore     Float        @default(5.5)
+  dimensionsScore    Float        @default(5.0)
+  constitutionScore  Float        @default(5.0)
+  examplesDataScore  Float        @default(5.0)
+  conclusionScore    Float        @default(6.0)
+  // Qualitative feedback
+  strengths          String       // JSON or markdown
+  majorWeaknesses    String       // JSON or markdown
+  missingDimensions  String       // JSON or markdown
+  betterStructure    String       // Outlined structure suggestions
+  enrichmentPoints   String       // Articles, cases, reports, data
+  modelAnswer        String?
+  improvementSummary String?      // Diff & comparative note vs previous attempt
+  createdAt          DateTime     @default(now())
+}
+
+model Essay {
+  id             String         @id @default(cuid())
+  title          String
+  theme          String         // Philosophical, Socio-Economic, Governance, Science-Ethics, International
+  year           Int?
+  isPYQ          Boolean        @default(false)
+  quoteBank      String?        // JSON of curated quotes
+  anecdoteBank   String?        // JSON of curated stories/anecdotes
+  dimensionsJson String?        // 12 dimensions brainstormed
+  attempts       EssayAttempt[]
+  createdAt      DateTime       @default(now())
+}
+
+model EssayAttempt {
+  id              String       @id @default(cuid())
+  essayId         String
+  essay           Essay        @relation(fields: [essayId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  outlineText     String?
+  fullText        String
+  wordCount       Int          @default(0)
+  timeTakenSec    Int          @default(5400)
+  score           Float        @default(125.0) // out of 250
+  aiEvaluation    String?
+  missingAngles   String?
+  createdAt       DateTime     @default(now())
+}
+
+model EthicsCase {
+  id              String       @id @default(cuid())
+  title           String
+  scenario        String
+  coreTheme       String       // Probity in Governance, Conflict of Interest, Whistleblowing, Public vs Private Morality
+  stakeholders    String       // JSON list
+  ethicalDilemmas String       // JSON list
+  optionsAndCons  String       // JSON options evaluation
+  bestActionModel String       // Recommended ethical resolution
+  quotesToUse     String?
+  createdAt       DateTime     @default(now())
+}
+
+model OptionalTopic {
+  id          String       @id @default(cuid())
+  code        String       // PSIR-1A, PSIR-1B, PSIR-2A, PSIR-2B
+  section     String       // Political Theory, IGP, Comparative & IR, India & World
+  title       String
+  syllabusRef String
+  order       Int          @default(1)
+  thinkers    Thinker[]
+}
+
+model Thinker {
+  id                String         @id @default(cuid())
+  optionalTopicId   String?
+  optionalTopic     OptionalTopic? @relation(fields: [optionalTopicId], references: [id], onDelete: SetNull)
+  name              String         // Plato, Aristotle, Machiavelli, Hobbes, Locke, etc.
+  era               String         // Ancient, Classical, Enlightenment, Modern
+  school            String         // Idealism, Realism, Liberalism, Marxism, Communitarianism
+  importantWorks    String         // Republic, Politics, Leviathan, Two Treatises, A Theory of Justice
+  coreConcepts      String         // Philosopher King, Allegory of Cave, Social Contract, Veil of Ignorance
+  famousArguments   String         // Bullet points of arguments
+  scholarlyViews    String         // Barker, Sabine, Popper, Macpherson
+  criticisms        String         // Major critiques
+  contemporaryUsage String         // How to apply to current world politics & India
+  keyQuotes         Quote[]
+  createdAt         DateTime       @default(now())
+}
+
+model Quote {
+  id          String    @id @default(cuid())
+  thinkerId   String?
+  thinker     Thinker?  @relation(fields: [thinkerId], references: [id], onDelete: SetNull)
+  quoteText   String
+  author      String
+  subject     String    // PSIR, Ethics, Essay, Polity
+  theme       String    // Justice, Liberty, Power, Integrity, Leadership
+  usageContext String?  // When to quote in Mains answer
+}
+
+model CurrentAffair {
+  id                 String                   @id @default(cuid())
+  title              String
+  source             String                   @default("The Hindu / Indian Express")
+  publishDate        DateTime                 @default(now())
+  category           String                   // Polity, Governance, IR, Economy, Environment, SciTech, Security, Ethics
+  summary            String
+  context            String
+  whyItMatters       String
+  prelimsAngle       String?
+  mainsAngle         String?
+  essayAngle         String?
+  psirAngle          String?
+  importantFacts     String?
+  articlesReferenced String?                  // e.g. Article 163, Article 356
+  institutions       String?                  // RBI, Supreme Court, Election Commission, CAG
+  keywords           String?
+  revisionDueAt      DateTime?
+  topicLinks         CurrentAffairTopicLink[]
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+}
+
+model CurrentAffairTopicLink {
+  id          String        @id @default(cuid())
+  caId        String
+  currentAffair CurrentAffair @relation(fields: [caId], references: [id], onDelete: Cascade)
+  nodeId      String
+  node        SyllabusNode  @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  approvedBy  String        @default("User") // AI_Suggested, User_Approved
+  relevance   String        @default("High")
+}
+
+model Note {
+  id           String        @id @default(cuid())
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nodeId       String?
+  node         SyllabusNode? @relation(fields: [nodeId], references: [id], onDelete: SetNull)
+  title        String
+  content      String
+  noteType     String        @default("TopicNote") // AtomicNote, TopicNote, RevisionSheet, OnePager
+  tags         String?       // comma separated
+  isOnePager   Boolean       @default(false)
+  summarySheet String?       // One-page concise revision sheet
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  outgoingLinks NoteLink[]   @relation("OutgoingLinks")
+  incomingLinks NoteLink[]   @relation("IncomingLinks")
+}
+
+model NoteLink {
+  id           String   @id @default(cuid())
+  fromNoteId   String
+  fromNote     Note     @relation("OutgoingLinks", fields: [fromNoteId], references: [id], onDelete: Cascade)
+  toNoteId     String
+  toNote       Note     @relation("IncomingLinks", fields: [toNoteId], references: [id], onDelete: Cascade)
+  relationType String   @default("relates_to")
+}
+
+model Mistake {
+  id              String        @id @default(cuid())
+  userId          String
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nodeId          String?
+  node            SyllabusNode? @relation(fields: [nodeId], references: [id], onDelete: SetNull)
+  source          String        // MCQ Quiz, Mock Test, Mains Writing, PYQ, Factual Recall
+  questionText    String
+  userResponse    String
+  correctResponse String
+  reasonForError  String
+  mistakeType     String        // Knowledge gap, Conceptual confusion, Misread question, Overthinking, Poor elimination, Guessing, Fact confusion, Memory failure, Time pressure, Weak answer structure
+  topic           String
+  subject         String
+  repetitionCount Int           @default(1)
+  correctiveAction String?
+  nextReviewDate  DateTime?
+  status          String        @default("OPEN") // OPEN, REVIEWED, RESOLVED
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model Resource {
+  id            String   @id @default(cuid())
+  title         String   // e.g. "Indian Polity by M. Laxmikanth", "Introduction to Political Theory - OP Gauba"
+  resourceType  String   // Book, Report, PDF, WebLink, Video
+  subject       String
+  topic         String?
+  source        String?
+  priority      String   @default("Essential") // Essential, Supplementary, Reference
+  status        String   @default("IN_PROGRESS") // NOT_STARTED, IN_PROGRESS, COMPLETED
+  pagesRead     Int      @default(0)
+  totalPages    Int      @default(100)
+  estimatedMins Int      @default(600)
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Goal {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  category    String      // Exam Target, Monthly Goal, Subject Goal, Mock Target
+  targetDate  DateTime
+  progressPct Float       @default(0.0)
+  isCompleted Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  milestones  Milestone[]
+}
+
+model Milestone {
+  id          String   @id @default(cuid())
+  goalId      String?
+  goal        Goal?    @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  targetDate  DateTime
+  isCompleted Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model ReadinessMetric {
+  id             String   @id @default(cuid())
+  metricType     String   @unique // PRELIMS, MAINS, PSIR, ESSAY, OVERALL
+  score          Float    @default(50.0) // 0-100
+  positiveFactors String  // JSON array of factors driving score up
+  negativeFactors String  // JSON array of weaknesses dragging score down
+  targetBand     String   @default("Consolidation") // At Risk, Average, Competitive, Top Ranker
+  trajectory     String   @default("Improving") // Improving, Stable, Declining
+  updatedAt      DateTime @default(now())
+}
+
+model AnalyticsSnapshot {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date           DateTime @default(now())
+  studyMinutes   Int      @default(0)
+  tasksCompleted Int      @default(0)
+  mcqsSolved     Int      @default(0)
+  mcqAccuracy    Float    @default(0.0)
+  mainsScoreAvg  Float    @default(0.0)
+  revisionCount  Int      @default(0)
+  overallReadiness Float  @default(50.0)
+}
+
+model AIInsight {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category    String   // Weakness, Schedule, Recommendation, MockDiagnosis, Warning
+  title       String
+  insight     String
+  actionable  String
+  priority    String   @default("Medium") // High, Medium, Low
+  isDismissed Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  message     String
+  link        String?
+  type        String   @default("INFO") // INFO, REVISION, MISTAKE, TEST, BACKLOG
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+}
