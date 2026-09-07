@@ -10,7 +10,7 @@ export async function getActiveUserId(): Promise<string | null> {
   }
 }
 
-export async function getActiveUser(includeOptions?: any) {
+export async function getActiveUser(includeOptions?: any): Promise<any> {
   try {
     const userId = await getActiveUserId();
     if (userId) {

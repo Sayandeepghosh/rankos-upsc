@@ -1,144 +1,88 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
+import { hashPassword } from "@/lib/auth/password";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const {
-      name,
-      email,
-      targetYear = 2027,
-      optionalSubject = "PSIR",
-      dailyStudyHours = 6.0,
-      currentPhase = "Foundation",
-    } = body;
+    const { username, password, name } = body;
 
-    if (!name || !email) {
+    if (!username || !password) {
       return NextResponse.json(
-        { error: "Name and Email are required" },
+        { error: "Username and password are required for local signup" },
         { status: 400 }
       );
     }
 
-    // Check if email exists locally
-    const existing = await prisma.user.findUnique({
-      where: { email },
+    const cleanUsername = username.trim().toLowerCase();
+
+    if (cleanUsername.length < 3) {
+      return NextResponse.json(
+        { error: "Username must be at least 3 characters" },
+        { status: 400 }
+      );
+    }
+
+    if (password.length < 4) {
+      return NextResponse.json(
+        { error: "Password must be at least 4 characters" },
+        { status: 400 }
+      );
+    }
+
+    // Check if username already exists locally
+    const existing = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { username: cleanUsername },
+          { email: cleanUsername }
+        ]
+      }
     });
 
     if (existing) {
       return NextResponse.json(
-        { error: "A local profile with this email already exists. You can sign in directly." },
+        { error: "This username is already registered locally. Please sign in." },
         { status: 409 }
       );
     }
 
-    // Generate avatar initials URL or placeholder
-    const initials = name
-      .split(" ")
-      .map((p: string) => p[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase();
+    const displayName = name?.trim() || cleanUsername;
+    const passwordHash = hashPassword(password);
 
     const user = await prisma.user.create({
       data: {
-        name,
-        email,
-        avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}`,
+        username: cleanUsername,
+        name: displayName,
+        email: `${cleanUsername}@local.rankos`,
+        passwordHash,
+        avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}`,
         profile: {
           create: {
-            targetYear: Number(targetYear),
+            targetYear: 2027,
             attemptNumber: 1,
-            currentPhase,
-            optionalSubject,
-            dailyStudyHours: Number(dailyStudyHours),
+            currentPhase: "Foundation",
+            optionalSubject: "PSIR",
+            dailyStudyHours: 6.0,
             wakeTime: "06:00",
             strongSubjects: "Polity,Ethics",
             weakSubjects: "Environment,Economy",
+            onboardingCompleted: false, // Must complete fullscreen prerequisites!
             aiProvider: "heuristic",
             aiModel: "UPSC Expert Heuristics v2.4",
           },
         },
-        examTargets: {
-          create: [
-            {
-              examName: `UPSC CSE ${targetYear} Prelims`,
-              examStage: "Prelims",
-              targetDate: new Date(`${targetYear}-05-23T09:30:00Z`),
-              daysLeft: Math.max(
-                1,
-                Math.ceil((new Date(`${targetYear}-05-23`).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-              ),
-              isPrimary: true,
-            },
-            {
-              examName: `UPSC CSE ${targetYear} Mains`,
-              examStage: "Mains",
-              targetDate: new Date(`${targetYear}-09-17T09:00:00Z`),
-              daysLeft: Math.max(
-                1,
-                Math.ceil((new Date(`${targetYear}-09-17`).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-              ),
-              isPrimary: false,
-            },
-          ],
-        },
-        // Seed starter tasks for this new aspirant
-        tasks: {
-          create: [
-            {
-              title: "Core Study: Preamble & Constitutional Philosophy",
-              subject: "Polity",
-              topic: "Preamble & Basic Structure",
-              taskType: "Learning",
-              estimatedMinutes: 60,
-              actualMinutes: 0,
-              priority: "High",
-              priorityScore: 85,
-              status: "PENDING",
-              reason: "High-yield foundational topic for Prelims & GS-2",
-              scheduledDate: new Date(),
-            },
-            {
-              title: "Active Recall: Fundamental Rights (Articles 14-32)",
-              subject: "Polity",
-              topic: "Fundamental Rights",
-              taskType: "Revision",
-              estimatedMinutes: 30,
-              actualMinutes: 0,
-              priority: "Urgent",
-              priorityScore: 92,
-              status: "PENDING",
-              reason: "Spaced revision to lock memory before decay",
-              scheduledDate: new Date(),
-            },
-            {
-              title: "Prelims Practice: 10 MCQs on Constitutional Framework",
-              subject: "Polity",
-              topic: "Historical Underpinnings",
-              taskType: "Practice",
-              estimatedMinutes: 20,
-              actualMinutes: 0,
-              priority: "Medium",
-              priorityScore: 70,
-              status: "PENDING",
-              reason: "Test elimination technique and identify traps",
-              scheduledDate: new Date(),
-            },
-          ],
-        },
       },
       include: {
         profile: true,
-        examTargets: true,
-        tasks: true,
       },
     });
 
     const response = NextResponse.json({
       success: true,
       user,
-      message: `Created and signed in to local account for ${user.name}!`,
+      onboardingCompleted: false,
+      message: `Account created for ${cleanUsername}! Please complete prerequisite setup.`,
     });
 
     // Set cookie for 365 days

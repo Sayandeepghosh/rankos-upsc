@@ -9,8 +9,10 @@ datasource db {
 
 model User {
   id            String         @id @default(cuid())
-  email         String         @unique
+  username      String?        @unique
+  email         String?        @unique
   name          String
+  passwordHash  String?
   avatarUrl     String?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
@@ -34,21 +36,22 @@ model User {
 }
 
 model UserProfile {
-  id               String   @id @default(cuid())
-  userId           String   @unique
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  targetYear       Int      @default(2027)
-  attemptNumber    Int      @default(1)
-  currentPhase     String   @default("Foundation") // Foundation, First Reading, Consolidation, Prelims Intensive, Mains Intensive
-  optionalSubject  String   @default("PSIR")
-  dailyStudyHours  Float    @default(6.0)
-  wakeTime         String   @default("06:00")
-  strongSubjects   String   @default("Polity,Ethics")
-  weakSubjects     String   @default("Environment,Ancient History")
-  aiProvider       String   @default("heuristic") // heuristic, openai, anthropic, gemini
-  aiModel          String   @default("default")
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetYear          Int      @default(2027)
+  attemptNumber       Int      @default(1)
+  currentPhase        String   @default("Foundation") // Foundation, First Reading, Consolidation, Prelims Intensive, Mains Intensive
+  optionalSubject     String   @default("PSIR")
+  dailyStudyHours     Float    @default(6.0)
+  wakeTime            String   @default("06:00")
+  strongSubjects      String   @default("Polity,Ethics")
+  weakSubjects        String   @default("Environment,Ancient History")
+  onboardingCompleted Boolean  @default(false)
+  aiProvider          String   @default("heuristic") // heuristic, openai, anthropic, gemini
+  aiModel             String   @default("default")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 model ExamTarget {

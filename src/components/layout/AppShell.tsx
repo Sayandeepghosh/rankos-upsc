@@ -34,6 +34,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
+  const isFullscreenPage = pathname?.startsWith("/onboarding") || pathname?.startsWith("/login");
+
+  if (isFullscreenPage) {
+    return (
+      <div className="min-h-screen bg-background text-foreground selection:bg-primary/20 selection:text-primary">
+        {children}
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex bg-background text-foreground selection:bg-primary/20 selection:text-primary">
       {/* Desktop Sidebar */}

@@ -1,4 +1,5 @@
 import React from "react";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { getActiveUser } from "@/lib/auth/session";
 import { CommandCenterDashboard } from "@/features/command-center/CommandCenterDashboard";
@@ -26,6 +27,11 @@ export default async function HomePage() {
       },
     },
   });
+
+  // If no user or onboarding not finished, present fullscreen onboarding & prerequisites
+  if (!user || !user.profile?.onboardingCompleted) {
+    redirect("/onboarding");
+  }
 
   const readiness = await prisma.readinessMetric.findMany();
   const mockTest = await prisma.test.findFirst({
