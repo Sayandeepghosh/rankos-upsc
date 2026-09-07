@@ -1,11 +1,12 @@
 import React from "react";
 import { prisma } from "@/lib/db/prisma";
+import { getActiveUser } from "@/lib/auth/session";
 import { CommandCenterDashboard } from "@/features/command-center/CommandCenterDashboard";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const user = await prisma.user.findFirst({
+  const user = await getActiveUser({
     include: {
       profile: true,
       examTargets: true,

@@ -118,9 +118,13 @@ export function Header({
           {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
         </button>
 
-        {/* User avatar */}
-        <Link href="/settings" className="flex items-center gap-2 pl-2 border-l border-border">
-          <div className="w-7 h-7 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center text-xs font-bold text-primary overflow-hidden">
+        {/* Local User Account / Switcher */}
+        <Link
+          href="/login"
+          className="flex items-center gap-2 pl-2 border-l border-border group"
+          title="Local Aspirant Profile (Switch / Create Account)"
+        >
+          <div className="w-7 h-7 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center text-xs font-bold text-primary group-hover:scale-105 transition-transform overflow-hidden shadow-sm">
             SM
           </div>
         </Link>

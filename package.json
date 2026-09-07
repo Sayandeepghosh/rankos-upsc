@@ -11,7 +11,8 @@
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
     "test": "tsx --test tests/engine.test.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "build:desktop": "C:\\Windows\\Microsoft.NET\\Framework64\\v4.0.30319\\csc.exe /target:winexe /optimize+ /out:dist\\RankOS.exe /r:System.Windows.Forms.dll,System.Drawing.dll,System.dll src-desktop\\RankOSLauncher.cs"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
