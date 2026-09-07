@@ -63,16 +63,13 @@ export default function OnboardingPage() {
       const data = await res.json();
       if (data.users && data.users.length > 0) {
         setExistingUsers(data.users);
-        // If active user is already found, check if they need prerequisites
-        const active = data.users.find((u: any) => u.id === data.activeUserId);
-        if (active) {
-          setActiveUser(active);
-          if (active.profile?.onboardingCompleted) {
-            // Already onboarded
-            router.push("/");
-          } else {
-            // Proceed to prerequisites
-            setCurrentStep(2);
+        if (data.activeUserId) {
+          const active = data.users.find((u: any) => u.id === data.activeUserId);
+          if (active) {
+            setActiveUser(active);
+            if (!active.profile?.onboardingCompleted) {
+              setCurrentStep(2);
+            }
           }
         }
       }
@@ -156,7 +153,7 @@ export default function OnboardingPage() {
       if (res.ok) {
         setActiveUser(data.user);
         if (data.onboardingCompleted) {
-          router.push("/");
+          window.location.href = "/";
         } else {
           setCurrentStep(2);
         }
@@ -184,7 +181,7 @@ export default function OnboardingPage() {
       if (res.ok) {
         setActiveUser(data.user);
         if (data.onboardingCompleted) {
-          router.push("/");
+          window.location.href = "/";
         } else {
           setCurrentStep(2);
         }
@@ -224,8 +221,7 @@ export default function OnboardingPage() {
       if (res.ok) {
         // Wait 1.2s for pleasant animated transition
         setTimeout(() => {
-          router.push("/");
-          router.refresh();
+          window.location.href = "/";
         }, 1200);
       } else {
         const data = await res.json();
@@ -320,6 +316,31 @@ export default function OnboardingPage() {
                   : "Welcome back! Access your preparation dashboard and revision deck."}
               </p>
             </div>
+
+            {/* Active User Quick Access Banner */}
+            {activeUser && activeUser.profile?.onboardingCompleted && (
+              <div className="p-3.5 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-between gap-3 shadow-sm">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center font-bold text-xs text-primary">
+                    {(activeUser.name || activeUser.username || "U").slice(0, 2).toUpperCase()}
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-foreground">
+                      Active: @{activeUser.username || activeUser.name}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground">
+                      Target {activeUser.profile.targetYear} &bull; {activeUser.profile.optionalSubject}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { window.location.href = "/"; }}
+                  className="px-3 py-1.5 rounded-xl bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 transition-all flex items-center gap-1 shadow-md shadow-primary/20 shrink-0"
+                >
+                  <span>Open OS &rarr;</span>
+                </button>
+              </div>
+            )}
 
             {/* Mode Switcher Tabs */}
             <div className="p-1 rounded-2xl bg-card border border-border flex items-center gap-1 max-w-xs mx-auto shadow-sm">

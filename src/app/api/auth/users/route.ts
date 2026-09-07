@@ -18,7 +18,7 @@ export async function GET() {
 
     return NextResponse.json({
       users,
-      activeUserId: activeUserId || users[0]?.id || null,
+      activeUserId: activeUserId || null,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });

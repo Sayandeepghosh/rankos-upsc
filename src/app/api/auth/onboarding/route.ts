@@ -146,11 +146,21 @@ export async function POST(req: Request) {
       });
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: `Onboarding completed for UPSC CSE ${parsedYear}!`,
       profile,
     });
+
+    response.cookies.set({
+      name: "rankos_user_id",
+      value: userId,
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: "lax",
+    });
+
+    return response;
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

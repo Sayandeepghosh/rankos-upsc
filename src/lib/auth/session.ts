@@ -30,7 +30,5 @@ export async function getActiveUser(options?: any): Promise<any> {
     // ignore
   }
 
-  return prisma.user.findFirst({
-    ...(includeMap ? { include: includeMap } : {}),
-  });
+  return null;
 }
