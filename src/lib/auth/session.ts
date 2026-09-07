@@ -10,13 +10,19 @@ export async function getActiveUserId(): Promise<string | null> {
   }
 }
 
-export async function getActiveUser(includeOptions?: any): Promise<any> {
+export async function getActiveUser(options?: any): Promise<any> {
+  // Gracefully handle both { include: { ... } } and direct { profile: true, ... }
+  let includeMap: any = undefined;
+  if (options) {
+    includeMap = options.include !== undefined ? options.include : options;
+  }
+
   try {
     const userId = await getActiveUserId();
     if (userId) {
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        include: includeOptions,
+        ...(includeMap ? { include: includeMap } : {}),
       });
       if (user) return user;
     }
@@ -25,6 +31,6 @@ export async function getActiveUser(includeOptions?: any): Promise<any> {
   }
 
   return prisma.user.findFirst({
-    include: includeOptions,
+    ...(includeMap ? { include: includeMap } : {}),
   });
 }
