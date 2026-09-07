@@ -122,7 +122,19 @@ RankOS is organized into 18 primary navigation centers:
 
 ---
 
-## 🚀 Quick Start Guide
+## 🌐 One-Click Live Cloud Deployment
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FSayandeepghosh%2Frankos-upsc)
+
+### Deploying to Vercel:
+1. Click **Deploy with Vercel** above (or import `Sayandeepghosh/rankos-upsc` directly in your [Vercel Dashboard](https://vercel.com/new)).
+2. Configure your `DATABASE_URL` (SQLite works for ephemeral runs, or connect free PostgreSQL via [Neon](https://neon.tech), [Supabase](https://supabase.com), or [Prisma Accelerate](https://www.prisma.io/data-platform/accelerate)).
+3. Add any optional AI API key (`GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, or `OPENAI_API_KEY`).
+4. Click **Deploy** — Vercel will automatically build and publish your app live!
+
+---
+
+## 🚀 Quick Start Guide (Local)
 
 ### Prerequisites
 - Node.js 18+ or 20+
@@ -130,7 +142,7 @@ RankOS is organized into 18 primary navigation centers:
 
 ### 1. Clone & Install Dependencies
 ```bash
-git clone https://github.com/your-username/rankos-upsc.git
+git clone https://github.com/Sayandeepghosh/rankos-upsc.git
 cd rankos-upsc
 npm install
 ```
